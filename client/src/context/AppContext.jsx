@@ -2,12 +2,16 @@ import { createContext, useState, useEffect } from "react";
 import { dummyCourses } from "../assets/assets";
 import { useNavigate } from "react-router-dom";
 import humanizeDuration from "humanize-duration";
+import { useAuth, useUser } from "@clerk/clerk-react";
 
 export const AppContext = createContext();
 
 export const AppContextProvider = (props) => {
     const currency = import.meta.env.VITE_CURRENCY;
     const navigate = useNavigate();
+
+    const { getToken } = useAuth();
+    const { user } = useUser(); // Fix: Corrected variable name
 
     const [allCourses, setAllCourses] = useState([]);
     const [isEducator, setIsEducator] = useState(true);
@@ -23,7 +27,7 @@ export const AppContextProvider = (props) => {
             return 0;
         }
         let totalRating = 0;
-        course.courseRatings.forEach(rating => {
+        course.courseRatings.forEach((rating) => {
             totalRating += rating.rating;
         });
         return totalRating / course.courseRatings.length;
@@ -32,7 +36,7 @@ export const AppContextProvider = (props) => {
     // Function to calculate chapter time
     const calculateChapterTime = (chapter) => {
         let time = 0;
-        chapter.chapterContent.forEach((lecture) => time += lecture.lectureDuration);
+        chapter.chapterContent.forEach((lecture) => (time += lecture.lectureDuration));
         return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
     };
 
@@ -40,7 +44,7 @@ export const AppContextProvider = (props) => {
     const calculateCourseDuration = (course) => {
         let time = 0;
         course.courseContent.forEach((chapter) => {
-            chapter.chapterContent.forEach((lecture) => time += lecture.lectureDuration);
+            chapter.chapterContent.forEach((lecture) => (time += lecture.lectureDuration));
         });
         return humanizeDuration(time * 60 * 1000, { units: ["h", "m"] });
     };
@@ -48,21 +52,30 @@ export const AppContextProvider = (props) => {
     // Function to calculate the number of lectures in a course
     const calculateNoOfLectures = (course) => {
         let totalLectures = 0;
-        course.courseContent.forEach(chapter => {
+        course.courseContent.forEach((chapter) => {
             if (Array.isArray(chapter.chapterContent)) {
                 totalLectures += chapter.chapterContent.length;
             }
         });
         return totalLectures;
     };
+
     const fetchUserEnrolledCourses = async () => {
-        setEnrolledCourses(dummyCourses)
-    }
+        setEnrolledCourses(dummyCourses);
+    };
 
     useEffect(() => {
-        fetchAllCourses()
-        fetchUserEnrolledCourses()
+        fetchAllCourses();
+        fetchUserEnrolledCourses();
     }, []);
+
+    useEffect(() => {
+        if (user) {
+            (async () => {
+                console.log(await getToken()); // Fix: Async function wrapped inside useEffect
+            })();
+        }
+    }, [user]);
 
     const value = {
         currency,
@@ -73,15 +86,11 @@ export const AppContextProvider = (props) => {
         setIsEducator,
         calculateChapterTime,
         calculateCourseDuration,
-        calculateNoOfLectures, 
-        enrolledCourses, 
+        calculateNoOfLectures,
+        enrolledCourses,
         setEnrolledCourses,
         fetchUserEnrolledCourses,
     };
 
-    return (
-        <AppContext.Provider value={value}>
-            {props.children}
-        </AppContext.Provider>
-    );
+    return <AppContext.Provider value={value}>{props.children}</AppContext.Provider>;
 };

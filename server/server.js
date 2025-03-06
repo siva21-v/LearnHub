@@ -8,16 +8,24 @@ import { clerkMiddleware } from '@clerk/express';
 import { clerkWebhooks, stripeWebhooks } from './controllers/webhooks.js';
 import educatorRouter from './routes/educatorRoutes.js';
 import courseRouter from './routes/courseRoute.js';
+import http from 'http'; // Import http module
+import { Server } from 'socket.io'; // Import socket.io
 
 // Initialize Express
 const app = express();
+
+// Create an HTTP server for Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*" } // Allow all origins (adjust for production)
+});
 
 // Middlewares
 app.use(cors());
 app.use(express.json()); // Global JSON middleware
 app.use(clerkMiddleware());
 
-// Function to initialize database & cloudinary
+// Initialize database & cloudinary
 const initializeApp = async () => {
   try {
     await connectDB();
@@ -46,8 +54,19 @@ app.use('/api/educator', educatorRouter);
 app.use('/api/course', courseRouter);
 app.use('/api/user', userRouter);
 
-// Port
+// 🔹 SOCKET.IO SETUP
+const onlineUsersNamespace = io.of("/online.users");
+
+onlineUsersNamespace.on("connection", (socket) => {
+  console.log("✅ User connected to /online.users namespace");
+
+  socket.on("disconnect", () => {
+    console.log("❌ User disconnected from /online.users");
+  });
+});
+
+// Start Server on the HTTP server (not app.listen)
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
